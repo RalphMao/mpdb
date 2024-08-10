@@ -9,6 +9,6 @@ import torch.distributed as dist
 
 from mpdb import embed
 
-
+embed()
 dist.init_process_group("nccl")
 embed()

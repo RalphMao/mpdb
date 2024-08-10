@@ -1,6 +1,7 @@
 import datetime
 import os
 import time
+import typing
 
 
 def get_local_rank():
@@ -33,6 +34,7 @@ def get_local_world_size():
 def get_dist_backend():
     dist = get_pytorch_dist()
     if dist is not None:
+        dist.set(0)
         return dist
     return DummyBackend()
 
@@ -41,9 +43,6 @@ def get_pytorch_dist():
     try:
         import torch.distributed as dist
     except ImportError:
-        return None
-    if not dist.is_initialized():
-        print("PyTorch distributed is not initialized, disable")
         return None
     return TorchDistBackend()
 
@@ -64,20 +63,27 @@ class DummyBackend:
         pass
 
 
-class TorchDistBackend(DummyBackend):
+class Singleton(type):
+    _instances = {}  # type: ignore
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class TorchDistBackend(DummyBackend, metaclass=Singleton):
     is_dummy = False
 
     def __init__(self):
         import torch.distributed as dist
 
-        assert dist.is_initialized()
         self.dist = dist
-        rank = dist.get_rank()
-        if rank == 0:
+        self.rank = get_local_rank()
+        if self.rank == 0:
             self.store = dist.TCPStore("127.0.0.1", 50001, is_master=True)
             self.store.set("active", "0")
-        # dist.barrier()
-        if rank != 0:
+        else:
             self.store = dist.TCPStore(
                 "127.0.0.1",
                 50001,
@@ -96,7 +102,7 @@ class TorchDistBackend(DummyBackend):
 
     def finish(self):
         self.store.set("active", "-1")
-        if self.dist.get_rank() == 0:
+        if self.rank == 0:
             n_sec = 2
             print(
                 f"Sending STOP message to other sessions. Exiting in {n_sec} seconds.",
