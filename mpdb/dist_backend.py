@@ -43,6 +43,8 @@ def get_pytorch_dist():
     try:
         import torch.distributed as dist
     except ImportError:
+        print("Process switching relies on torch.distributed.TCPStore")
+        print("torch not found, disable process switching")
         return None
     return TorchDistBackend()
 
