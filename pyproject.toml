@@ -1,0 +1,10 @@
+[project]
+name = "mpdb"
+version = "0.1.0"
+dependencies = [
+    "IPython>=8.0.0",
+]
+
+[build-system]
+requires = ["setuptools >= 54.0"]
+build-backend = "setuptools.build_meta"
