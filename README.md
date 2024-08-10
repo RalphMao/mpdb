@@ -18,6 +18,7 @@ IPython is great for debugging but using it in multi-process environment is awkw
 
 ## TODO
 
+ - [ ] Add MPI and Slurm examples
  - [ ] Support multi-process equivalent of `ipdb.set_trace`
  - [ ] More general sync mechanism without torch dependency
  - [ ] Support multi-node debugging on Slurm
