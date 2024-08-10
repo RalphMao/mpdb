@@ -4,8 +4,8 @@ import time
 
 
 def get_local_rank():
-    # Check for OpenMPI, torchrun
-    for env_var in ["OMPI_COMM_WORLD_LOCAL_RANK", "LOCAL_RANK"]:
+    # Check for OpenMPI, Intel MPI, Slurm, torchrun/accelerate
+    for env_var in ["OMPI_COMM_WORLD_LOCAL_RANK", "PMI_RANK", "SLURM_LOCALID", "LOCAL_RANK"]:
         rank = os.environ.get(env_var)
         if rank is not None:
             return int(rank)
@@ -15,8 +15,13 @@ def get_local_rank():
 
 
 def get_local_world_size():
-    # Check for OpenMPI, torchrun
-    for env_var in ["OMPI_COMM_WORLD_LOCAL_SIZE", "LOCAL_WORLD_SIZE"]:
+    # Check for OpenMPI, Intel MPI, Slurm, torchrun/accelerate
+    for env_var in [
+        "OMPI_COMM_WORLD_LOCAL_SIZE",
+        "PMI_SIZE",
+        "SLURM_NTASKS_PER_NODE",
+        "LOCAL_WORLD_SIZE",
+    ]:
         rank = os.environ.get(env_var)
         if rank is not None:
             return int(rank)
@@ -32,13 +37,24 @@ def get_dist_backend():
     return DummyBackend()
 
 
+def get_pytorch_dist():
+    try:
+        import torch.distributed as dist
+    except ImportError:
+        return None
+    if not dist.is_initialized():
+        print("PyTorch distributed is not initialized, disable")
+        return None
+    return TorchDistBackend()
+
+
 class DummyBackend:
     is_dummy = True
 
-    def get(self):
+    def get(self) -> int:
         return 0
 
-    def set(self, value):
+    def set(self, value: int):
         pass
 
     def sync(self):
@@ -69,7 +85,7 @@ class TorchDistBackend(DummyBackend):
                 timeout=datetime.timedelta(seconds=30),
             )
 
-    def get(self):
+    def get(self) -> int:
         return int(self.store.get("active"))
 
     def set(self, value: int):
@@ -86,14 +102,3 @@ class TorchDistBackend(DummyBackend):
                 f"Sending STOP message to other sessions. Exiting in {n_sec} seconds.",
             )
             time.sleep(n_sec)
-
-
-def get_pytorch_dist():
-    try:
-        import torch.distributed as dist
-    except ImportError:
-        return None
-    if not dist.is_initialized():
-        print("PyTorch distributed is not initialized, disable")
-        return None
-    return TorchDistBackend()
