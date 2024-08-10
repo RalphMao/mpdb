@@ -1,12 +1,17 @@
 import sys
 import time
-from traitlets import Bool, CBool, Unicode
+
 from IPython.terminal.embed import InteractiveShellEmbed
+from traitlets import Bool
+from traitlets import CBool
+from traitlets import Unicode
 
-from .dist_backend import get_local_rank, get_dist_backend
+from .dist_backend import get_dist_backend
+from .dist_backend import get_local_rank
 
-   
-    
+__all__ = ["embed"]
+
+
 class MultiProcessShellEmbed(InteractiveShellEmbed):
     _local_rank = get_local_rank()
     _dist = get_dist_backend()
@@ -27,9 +32,10 @@ class MultiProcessShellEmbed(InteractiveShellEmbed):
     def cleanup(self):
         n_sec = 3
         self._dist.finish()
-        print(f"Sending message to other sessions. Exiting in {n_sec} seconds.")
+        print(
+            f"Sending message to other sessions. Exiting in {n_sec} seconds.",
+        )
         time.sleep(3)
-
 
     def interact(self):
         self.keep_running = True
@@ -38,19 +44,21 @@ class MultiProcessShellEmbed(InteractiveShellEmbed):
             return
 
         while self.keep_running:
-
             if self._dist:
                 self._active_rank = self._dist.get()
                 if self._active_rank == -1:
                     return
 
             if self._local_rank == self._active_rank:
-                print(self.separate_in, end='')
+                print(self.separate_in, end="")
                 try:
                     code = self.prompt_for_code()
                 except EOFError:
-                    if (not self.confirm_exit) \
-                            or self.ask_yes_no('Do you really want to exit ([y]/n)?','y','n'):
+                    if (not self.confirm_exit) or self.ask_yes_no(
+                        "Do you really want to exit ([y]/n)?",
+                        "y",
+                        "n",
+                    ):
                         self.ask_exit()
                         if not self.keep_running:
                             self._dist.set(-1)
@@ -75,10 +83,23 @@ class MultiProcessShellEmbed(InteractiveShellEmbed):
             else:
                 time.sleep(0.5)
 
+
 def embed(**kwargs):
     frame = sys._getframe(1)
-    shell = MultiProcessShellEmbed.instance(_init_location_id='%s:%s' % (
-        frame.f_code.co_filename, frame.f_lineno), **kwargs)
-    shell(header="", stack_depth=2, compile_flags=None,
-        _call_location_id='%s:%s' % (frame.f_code.co_filename, frame.f_lineno))
+    shell = MultiProcessShellEmbed.instance(
+        _init_location_id="{}:{}".format(
+            frame.f_code.co_filename,
+            frame.f_lineno,
+        ),
+        **kwargs,
+    )
+    shell(
+        header="",
+        stack_depth=2,
+        compile_flags=None,
+        _call_location_id="{}:{}".format(
+            frame.f_code.co_filename,
+            frame.f_lineno,
+        ),
+    )
     MultiProcessShellEmbed.clear_instance()

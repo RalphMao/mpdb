@@ -8,3 +8,7 @@ dependencies = [
 [build-system]
 requires = ["setuptools >= 54.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+preview = true
