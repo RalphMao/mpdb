@@ -2,19 +2,19 @@ import sys
 import time
 
 from IPython.terminal.embed import InteractiveShellEmbed
-from traitlets import Bool
 from traitlets import CBool
-from traitlets import Unicode
 
 from .dist_backend import get_dist_backend
 from .dist_backend import get_local_rank
+from .dist_backend import get_local_world_size
 
 __all__ = ["embed"]
 
 
 class MultiProcessShellEmbed(InteractiveShellEmbed):
-    _local_rank = get_local_rank()
-    _dist = get_dist_backend()
+    _local_rank = None
+    _dist = None
+    _local_world_size = None
     _active_rank = 0
     display_banner = CBool(False)
     exit_msg = None
@@ -27,26 +27,28 @@ class MultiProcessShellEmbed(InteractiveShellEmbed):
         compile_flags=None,
     ):
         # print("Try to enter mainloop")
+        if self._local_rank is None:
+            self._local_rank = get_local_rank()
+            self._dist = get_dist_backend()
+            self._local_world_size = get_local_world_size()
         super().mainloop(local_ns, module, stack_depth, compile_flags)
 
     def cleanup(self):
-        n_sec = 3
         self._dist.finish()
-        print(
-            f"Sending message to other sessions. Exiting in {n_sec} seconds.",
-        )
-        time.sleep(3)
 
     def interact(self):
         self.keep_running = True
-        if self._local_rank != 0 and self._dist.is_dummy:
-            # print(f"Rank {self._local_rank} exiting, as distributed backend is not found")
-            return
+        if self._dist.is_dummy:
+            if self._local_rank != 0:
+                return
+            else:
+                print("Distributed environment not initialized, only activating Rank 0")
 
         while self.keep_running:
             if self._dist:
                 self._active_rank = self._dist.get()
                 if self._active_rank == -1:
+                    self.cleanup()
                     return
 
             if self._local_rank == self._active_rank:
@@ -61,16 +63,19 @@ class MultiProcessShellEmbed(InteractiveShellEmbed):
                     ):
                         self.ask_exit()
                         if not self.keep_running:
-                            self._dist.set(-1)
+                            self.cleanup()
                         continue
                 # print(f"Get code from rank {self._local_rank}: {code}")
-                if code.startswith("%mpdb switch "):
-                    target_active = code[13:].strip()
+                if code.startswith("%switch "):
+                    target_active = code[7:].strip()
                     if target_active.isdigit():
                         target_active = int(target_active)
-                        print(f"Switching to Rank {target_active}")
-                        self._dist.set(target_active)
-                        print(f"New active Rank: {self._dist.get()}")
+                        if target_active >= 0 and target_active < self._local_world_size:
+                            print(f"Switching to Rank {target_active}")
+                            self._dist.set(target_active)
+                            print(f"New active Rank: {self._dist.get()}")
+                        else:
+                            print(f"Invalid rank id: {target_active}")
                     else:
                         print("Invalid command")
                     continue

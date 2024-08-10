@@ -1,20 +1,28 @@
 import datetime
 import os
+import time
 
 
 def get_local_rank():
-    # Check for torchrun first
-    if "LOCAL_RANK" in os.environ:
-        return int(os.environ["LOCAL_RANK"])
-
-    # Check for MPI environment variables
-    for env_var in ["OMPI_COMM_WORLD_LOCAL_RANK", "MPI_LOCALRANKID", "PMI_LOCAL_RANK"]:
+    # Check for OpenMPI, torchrun
+    for env_var in ["OMPI_COMM_WORLD_LOCAL_RANK", "LOCAL_RANK"]:
         rank = os.environ.get(env_var)
         if rank is not None:
             return int(rank)
 
     # Default to 0 if no rank found
     return 0
+
+
+def get_local_world_size():
+    # Check for OpenMPI, torchrun
+    for env_var in ["OMPI_COMM_WORLD_LOCAL_SIZE", "LOCAL_WORLD_SIZE"]:
+        rank = os.environ.get(env_var)
+        if rank is not None:
+            return int(rank)
+
+    # Default to 1 if no distributed setup is detected
+    return 1
 
 
 def get_dist_backend():
@@ -72,6 +80,12 @@ class TorchDistBackend(DummyBackend):
 
     def finish(self):
         self.store.set("active", "-1")
+        if self.dist.get_rank() == 0:
+            n_sec = 2
+            print(
+                f"Sending STOP message to other sessions. Exiting in {n_sec} seconds.",
+            )
+            time.sleep(n_sec)
 
 
 def get_pytorch_dist():
