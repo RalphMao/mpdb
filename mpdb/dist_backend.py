@@ -5,8 +5,8 @@ import typing
 
 
 def get_local_rank():
-    # Check for OpenMPI, Intel MPI, Slurm, torchrun/accelerate
-    for env_var in ["OMPI_COMM_WORLD_LOCAL_RANK", "PMI_RANK", "SLURM_LOCALID", "LOCAL_RANK"]:
+    # Check for torchrun/accelerate, OpenMPI, Intel MPI, Slurm
+    for env_var in ["LOCAL_RANK", "OMPI_COMM_WORLD_LOCAL_RANK", "PMI_RANK", "SLURM_LOCALID"]:
         rank = os.environ.get(env_var)
         if rank is not None:
             return int(rank)
@@ -16,12 +16,12 @@ def get_local_rank():
 
 
 def get_local_world_size():
-    # Check for OpenMPI, Intel MPI, Slurm, torchrun/accelerate
+    # Check for torchrun/accelerate, OpenMPI, Intel MPI, Slurm
     for env_var in [
+        "LOCAL_WORLD_SIZE",
         "OMPI_COMM_WORLD_LOCAL_SIZE",
         "PMI_SIZE",
         "SLURM_NTASKS_PER_NODE",
-        "LOCAL_WORLD_SIZE",
     ]:
         rank = os.environ.get(env_var)
         if rank is not None:
