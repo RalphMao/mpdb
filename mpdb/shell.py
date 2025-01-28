@@ -100,7 +100,7 @@ def embed(**kwargs):
     )
     shell(
         header="",
-        stack_depth=2,
+        stack_depth=3,
         compile_flags=None,
         _call_location_id="{}:{}".format(
             frame.f_code.co_filename,
